@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* ============================================================
+   SETMS Design System — Global CSS
+   ============================================================ */
+
+@theme {
+  --color-navy-950: #020817;
+  --color-navy-900: #0f172a;
+  --color-navy-800: #1e293b;
+  --color-navy-700: #273449;
+  --color-navy-600: #334155;
+  --color-navy-500: #475569;
+  --color-navy-400: #64748b;
+  --color-blue-brand: #3b82f6;
+  --color-blue-bright: #60a5fa;
+  --color-emergency-critical: #ef4444;
+  --color-emergency-high: #f97316;
+  --color-emergency-normal: #eab308;
+  --color-success: #22c55e;
+  --color-signal-green: #22c55e;
+  --color-signal-yellow: #fbbf24;
+  --color-signal-red: #ef4444;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; border-radius: 4px; }
+
+.leaflet-container { background: #1e293b !important; font-family: 'Inter', sans-serif; }
+.leaflet-popup-content-wrapper { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px; }
+.leaflet-popup-tip { background: #1e293b; }
+.leaflet-control-zoom a { background: #1e293b !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+
+@keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.15); } }
+@keyframes slide-in-right { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes skeleton-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+.animate-fade-in { animation: fade-in 0.25s ease-out both; }
+
+.skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #273449 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+.badge-critical { background-color: #ef444420; color: #fca5a5; border: 1px solid #ef444440; }
+.badge-high { background-color: #f9731620; color: #fdba74; border: 1px solid #f9731640; }
+.badge-normal { background-color: #eab30820; color: #fde047; border: 1px solid #eab30840; }
+.badge-active { background-color: #22c55e20; color: #86efac; border: 1px solid #22c55e40; }
+.badge-pending { background-color: #3b82f620; color: #93c5fd; border: 1px solid #3b82f640; }
+.badge-completed { background-color: #64748b20; color: #94a3b8; border: 1px solid #64748b40; }
+
+.card-glass {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  border-radius: 12px;
+}
+
+.signal-green { background: #22c55e; box-shadow: 0 0 10px #22c55e88; }
+.signal-yellow { background: #fbbf24; box-shadow: 0 0 10px #fbbf2488; }
+.signal-red { background: #ef4444; box-shadow: 0 0 10px #ef444488; }
+
+/* Dark mode styling for OpenStreetMap free tiles */
+.dark-map .leaflet-tile {
+  filter: brightness(0.65) invert(1) contrast(3.5) hue-rotate(200deg) saturate(0.35);
+}
+.leaflet-container {
+  background-color: #0f172a !important;
+}

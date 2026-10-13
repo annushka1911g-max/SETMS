@@ -1,0 +1,191 @@
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — primary relational database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: setms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-setms_db}
+      POSTGRES_USER: ${POSTGRES_USER:-setms_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-setms_dev_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-setms_user} -d ${POSTGRES_DB:-setms_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - setms-net
+
+  # ---------------------------------------------------------------------------
+  # Redis — rate-limiting, pub/sub for WebSocket fan-out
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: setms-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - setms-net
+
+  # ---------------------------------------------------------------------------
+  # Mosquitto MQTT broker
+  # ---------------------------------------------------------------------------
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: setms-mqtt
+    restart: unless-stopped
+    volumes:
+      - ./iot/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./iot/mqtt/passwd:/mosquitto/config/passwd:ro
+      - mqtt_data:/mosquitto/data
+      - mqtt_logs:/mosquitto/log
+    ports:
+      - "1883:1883"
+      - "9001:9001"   # WebSocket MQTT for browser clients
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/#' -C 1 -u setms_backend -P setms_dev_pass 2>/dev/null || true"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - setms-net
+
+  # ---------------------------------------------------------------------------
+  # Backend — FastAPI application
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: setms-backend
+    restart: unless-stopped
+    environment:
+      - APP_ENV=development
+      - APP_DEBUG=true
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-setms_user}:${POSTGRES_PASSWORD:-setms_dev_pass}@postgres:5432/${POSTGRES_DB:-setms_db}
+      - REDIS_URL=redis://redis:6379/0
+      - MQTT_BROKER_HOST=mqtt
+      - MQTT_BROKER_PORT=1883
+      - MQTT_USERNAME=${MQTT_USERNAME:-setms_backend}
+      - MQTT_PASSWORD=${MQTT_PASSWORD:-setms_dev_pass}
+      - AI_ENGINE_URL=http://ai-engine:8001
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev_jwt_secret_change_in_production}
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-dev_app_secret_change_in_production}
+      - APP_ALLOWED_ORIGINS=${APP_ALLOWED_ORIGINS:-http://localhost:5173}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-admin@setms.local}
+      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-Admin1234!}
+      - SEED_OPERATOR_EMAIL=${SEED_OPERATOR_EMAIL:-operator@setms.local}
+      - SEED_OPERATOR_PASSWORD=${SEED_OPERATOR_PASSWORD:-Operator1234!}
+      - SEED_DRIVER_EMAIL=${SEED_DRIVER_EMAIL:-driver@setms.local}
+      - SEED_DRIVER_PASSWORD=${SEED_DRIVER_PASSWORD:-Driver1234!}
+      - SEED_HOSPITAL_EMAIL=${SEED_HOSPITAL_EMAIL:-hospital@setms.local}
+      - SEED_HOSPITAL_PASSWORD=${SEED_HOSPITAL_PASSWORD:-Hospital1234!}
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - setms-net
+
+  # ---------------------------------------------------------------------------
+  # AI Engine — YOLO / OpenCV service
+  # ---------------------------------------------------------------------------
+  ai-engine:
+    build:
+      context: ./ai-engine
+      dockerfile: Dockerfile
+    container_name: setms-ai-engine
+    restart: unless-stopped
+    environment:
+      - AI_SIMULATION_MODE=${AI_SIMULATION_MODE:-true}
+      - YOLO_MODEL_PATH=${YOLO_MODEL_PATH:-weights/yolov8n.pt}
+      - YOLO_CONFIDENCE_THRESHOLD=${YOLO_CONFIDENCE_THRESHOLD:-0.45}
+      - YOLO_DEVICE=${YOLO_DEVICE:-cpu}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./ai-engine:/app
+      - ai_weights:/app/weights
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - setms-net
+
+  # ---------------------------------------------------------------------------
+  # Frontend — React/Vite dev server
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: setms-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_WS_BASE_URL=ws://localhost:8000
+      - VITE_AI_ENGINE_URL=http://localhost:8001
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - setms-net
+
+# =============================================================================
+# Named Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  mqtt_data:
+    driver: local
+  mqtt_logs:
+    driver: local
+  ai_weights:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  setms-net:
+    driver: bridge
