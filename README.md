@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > **Saving Lives Through Intelligent Traffic Management.**  
-> A complete, professional, end-to-end Smart Emergency Traffic Management System (SETMS) built for the Smart India Hackathon (SIH), academic evaluation, and urban traffic research.
+> A complete, professional, end-to-end Smart Emergency Traffic Management System (SETMS) built urban traffic research.
 
 ---
 
